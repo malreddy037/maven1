@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: reddy
+    labels:
+      app: reddy
+  spec:
+    ports:
+    - port: 8080
+      targetPort: 8080
+      name: 8080-tcp
+    selector:
+      deploymentconfig: reddy
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: reddy
+  spec:
+    accessModes:
+      - ReadWriteOnce 
+    resources:
+      requests:
+        storage: 1Gi 
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: reddy
+  spec:
+    replicas: 1
+    selector:
+      deploymentconfig: reddy
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          deploymentconfig: reddy
+      spec:
+        volumes:
+        - name: log
+          persistentVolumeClaim:
+               claimName: reddy      
+        containers:
+        - image: malreddy
+          name: reddy
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 800Mi
+            requests:
+              cpu: 200m
+              memory: 500Mi
+          volumeMounts:
+            - mountPath: /log
+              name: log
+    triggers:
+    - type: ConfigChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - reddy
+        from:
+          kind: ImageStreamTag
+          name: malreddy:latest
+      type: ImageChange
+- apiVersion: v1
+  kind: Route
+  metadata:
+    name: reddy
+  spec:
+    host: reddy-altemista.framework.helix.everis.cloud
+    port:
+        targetPort: 8080-tcp
+    to:
+        kind: Service
+        name: reddy      
